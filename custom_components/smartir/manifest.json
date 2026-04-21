@@ -18,8 +18,7 @@
       "light.py",  
       "controller.py",
       "manifest.json",
-      "services.yaml",
-      "codes/climate/*.json"
+      "services.yaml"
     ]
   }
 }
