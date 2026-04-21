@@ -1,7 +1,7 @@
 {
   "domain": "smartir",
   "name": "SmartIR",
-  "documentation": "https://github.com/smartHomeHub/SmartIR",
+  "documentation": "https://github.com/Kazarnikov/ForkSmartIR",
   "dependencies": [],
   "codeowners": ["@smartHomeHub"],
   "requirements": ["aiofiles>=0.6.0"],
@@ -18,7 +18,8 @@
       "light.py",  
       "controller.py",
       "manifest.json",
-      "services.yaml"
+      "services.yaml",
+      "codes/climate/*.json"
     ]
   }
 }

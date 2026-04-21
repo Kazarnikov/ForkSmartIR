@@ -82,7 +82,7 @@ async def async_setup_platform(
         try:
             codes_source = (
                 "https://raw.githubusercontent.com/"
-                "smartHomeHub/SmartIR/master/"
+                "Kazarnikov/ForkSmartIR/master/"
                 "codes/light/{}.json"
             )
 
