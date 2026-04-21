@@ -2,3 +2,29 @@ check_updates:
   description: Check for SmartIR updates.
 update_component:
   description: Update SmartIR component.
+
+send_command:
+  name: "Отправляет команду IR"
+  description: "Отправляет команду на устройство"
+  fields:
+    command:
+      name: "Команда"
+      default: 'led'
+      required: true
+      selector:
+        select:
+          options:
+            - label: "Выключить"
+              value: 'off'
+            - label: "Выключить дисплей"
+              value: 'led'
+            - label: "Турбо режим"
+              value: 'turbo'
+            - label: "Качания по вертикали"
+              value: 'vertical'
+            - label: "Шаг по вертикали"
+              value: 'vertical_step'
+            - label: "Качания по горизонтали"
+              value: 'horizontal'
+            - label: "Шаг по горизонтали"
+              value: 'horizontal'

@@ -18,6 +18,7 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.restore_state import RestoreEntity
 from . import COMPONENT_ABS_DIR, Helper
 from .controller import get_controller
+from . import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ CONF_POWER_SENSOR_RESTORE_STATE = 'power_sensor_restore_state'
 SUPPORT_FLAGS = (
     ClimateEntityFeature.TURN_OFF |
     ClimateEntityFeature.TURN_ON |
-    ClimateEntityFeature.TARGET_TEMPERATURE | 
+    ClimateEntityFeature.TARGET_TEMPERATURE |
     ClimateEntityFeature.FAN_MODE
 )
 
@@ -92,9 +93,13 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         _LOGGER.error("The device JSON file is invalid")
         return
 
-    async_add_entities([SmartIRClimate(
-        hass, config, device_data
-    )])
+    device = SmartIRClimate(hass, config, device_data)
+    device_id = config.get("name", "unnamed_ac")
+    hass.data.setdefault(DOMAIN, {})
+
+    hass.data[DOMAIN][device_id] = device
+
+    async_add_entities([device])
 
 class SmartIRClimate(ClimateEntity, RestoreEntity):
     def __init__(self, hass, config, device_data):
@@ -135,7 +140,7 @@ class SmartIRClimate(ClimateEntity, RestoreEntity):
         self._current_humidity = None
 
         self._unit = hass.config.units.temperature_unit
-        
+
         #Supported features
         self._support_flags = SUPPORT_FLAGS
         self._support_swing = False
@@ -155,14 +160,14 @@ class SmartIRClimate(ClimateEntity, RestoreEntity):
             self._commands_encoding,
             self._controller_data,
             self._delay)
-            
+
     async def async_added_to_hass(self):
         """Run when entity about to be added."""
         await super().async_added_to_hass()
         _LOGGER.debug(f"async_added_to_hass {self} {self.name} {self.supported_features}")
-    
+
         last_state = await self.async_get_last_state()
-        
+
         if last_state is not None:
             self._hvac_mode = last_state.state
             self._current_fan_mode = last_state.attributes['fan_mode']
@@ -173,7 +178,7 @@ class SmartIRClimate(ClimateEntity, RestoreEntity):
                 self._last_on_operation = last_state.attributes['last_on_operation']
 
         if self._temperature_sensor:
-            async_track_state_change_event(self.hass, self._temperature_sensor, 
+            async_track_state_change_event(self.hass, self._temperature_sensor,
                                            self._async_temp_sensor_changed)
 
             temp_sensor_state = self.hass.states.get(self._temperature_sensor)
@@ -181,7 +186,7 @@ class SmartIRClimate(ClimateEntity, RestoreEntity):
                 self._async_update_temp(temp_sensor_state)
 
         if self._humidity_sensor:
-            async_track_state_change_event(self.hass, self._humidity_sensor, 
+            async_track_state_change_event(self.hass, self._humidity_sensor,
                                            self._async_humidity_sensor_changed)
 
             humidity_sensor_state = self.hass.states.get(self._humidity_sensor)
@@ -189,7 +194,7 @@ class SmartIRClimate(ClimateEntity, RestoreEntity):
                 self._async_update_humidity(humidity_sensor_state)
 
         if self._power_sensor:
-            async_track_state_change_event(self.hass, self._power_sensor, 
+            async_track_state_change_event(self.hass, self._power_sensor,
                                            self._async_power_sensor_changed)
 
     @property
@@ -218,7 +223,7 @@ class SmartIRClimate(ClimateEntity, RestoreEntity):
     def min_temp(self):
         """Return the polling state."""
         return self._min_temperature
-        
+
     @property
     def max_temp(self):
         """Return the polling state."""
@@ -298,14 +303,14 @@ class SmartIRClimate(ClimateEntity, RestoreEntity):
 
     async def async_set_temperature(self, **kwargs):
         """Set new target temperatures."""
-        hvac_mode = kwargs.get(ATTR_HVAC_MODE)  
+        hvac_mode = kwargs.get(ATTR_HVAC_MODE)
         temperature = kwargs.get(ATTR_TEMPERATURE)
-          
+
         if temperature is None:
             return
-            
+
         if temperature < self._min_temperature or temperature > self._max_temperature:
-            _LOGGER.warning('The temperature value is out of min/max range') 
+            _LOGGER.warning('The temperature value is out of min/max range')
             return
 
         if self._precision == PRECISION_WHOLE:
@@ -316,7 +321,7 @@ class SmartIRClimate(ClimateEntity, RestoreEntity):
         if hvac_mode:
             await self.async_set_hvac_mode(hvac_mode)
             return
-        
+
         if not self._hvac_mode.lower() == HVACMode.OFF:
             await self.send_command()
 
@@ -325,7 +330,7 @@ class SmartIRClimate(ClimateEntity, RestoreEntity):
     async def async_set_hvac_mode(self, hvac_mode):
         """Set operation mode."""
         self._hvac_mode = hvac_mode
-        
+
         if not hvac_mode == HVACMode.OFF:
             self._last_on_operation = hvac_mode
 
@@ -335,9 +340,9 @@ class SmartIRClimate(ClimateEntity, RestoreEntity):
     async def async_set_fan_mode(self, fan_mode):
         """Set fan mode."""
         self._current_fan_mode = fan_mode
-        
+
         if not self._hvac_mode.lower() == HVACMode.OFF:
-            await self.send_command()      
+            await self.send_command()
         self.async_write_ha_state()
 
     async def async_set_swing_mode(self, swing_mode):
@@ -351,13 +356,42 @@ class SmartIRClimate(ClimateEntity, RestoreEntity):
     async def async_turn_off(self):
         """Turn off."""
         await self.async_set_hvac_mode(HVACMode.OFF)
-        
+
     async def async_turn_on(self):
         """Turn on."""
         if self._last_on_operation is not None:
             await self.async_set_hvac_mode(self._last_on_operation)
         else:
             await self.async_set_hvac_mode(self._operation_modes[1])
+
+    async def send_command(self, command):
+        async with self._temp_lock:
+            try:
+                if 'led' == command:
+                    await self._controller.send(self._commands['led'])
+                    return
+
+                if 'turbo' == command:
+                    await self._controller.send(self._commands['turbo'])
+                    return
+
+                if 'horizontal' == command:
+                    await self._controller.send(self._commands['horizontal'])
+                    return
+
+                if 'horizontal_step' == command:
+                    await self._controller.send(self._commands['horizontal_step'])
+                    return
+
+                if 'vertical' == command:
+                    await self._controller.send(self._commands['vertical'])
+                    return
+
+                if 'vertical_step' == command:
+                    await self._controller.send(self._commands['vertical_step'])
+                    return
+            except Exception as e:
+                _LOGGER.exception(e)
 
     async def send_command(self):
         async with self._temp_lock:

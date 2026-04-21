@@ -58,6 +58,14 @@ async def async_setup(hass, config):
     async def _update_component(service):
         await _update(hass, update_branch, True)
 
+    async def _handle_send_command(call):
+        target_dev_id = call.data.get("device_id")
+        device = hass.data[DOMAIN].get(target_dev_id)
+        if device:
+            command = call.data.get("command", "")
+            await device.send_command(command)
+
+    hass.services.async_register(DOMAIN, 'send_command', _handle_send_command)
     hass.services.async_register(DOMAIN, 'check_updates', _check_updates)
     hass.services.async_register(DOMAIN, 'update_component', _update_component)
 
