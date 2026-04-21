@@ -59,11 +59,13 @@ async def async_setup(hass, config):
         await _update(hass, update_branch, True)
 
     async def _handle_send_command(call):
-        target_dev_id = call.data.get("device_id")
-        device = hass.data[DOMAIN].get(target_dev_id)
+        entity_id = call.data.get("entity_id")
+        device = hass.data[DOMAIN].get(entity_id)
         if device:
             command = call.data.get("command", "")
-            await device.send_command(command)
+            await device.send_extra_command(command)
+        else:
+             _LOGGER.error("Устройство %s не найдено", entity_id)
 
     hass.services.async_register(DOMAIN, 'send_command', _handle_send_command)
     hass.services.async_register(DOMAIN, 'check_updates', _check_updates)
@@ -128,8 +130,8 @@ async def _update(hass, branch, do_update=False, notify_if_latest=True):
                         hass.components.persistent_notification.async_create(
                             "Successfully updated to {}. Please restart Home Assistant."
                             .format(last_version), title='SmartIR')
-    except Exception:
-       _LOGGER.error("An error occurred while checking for updates.")
+    except Exception as ex:
+       _LOGGER.error("An error occurred while checking for updates. %s", ex)
 
 class Helper():
     @staticmethod

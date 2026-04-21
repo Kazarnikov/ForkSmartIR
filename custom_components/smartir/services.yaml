@@ -7,6 +7,12 @@ send_command:
   name: "Отправляет команду IR"
   description: "Отправляет команду на устройство"
   fields:
+    entity_id:
+      name: "Объект"
+      required: true
+      selector:
+        entity:
+          integration: smartir
     command:
       name: "Команда"
       default: 'led'
@@ -27,4 +33,4 @@ send_command:
             - label: "Качания по горизонтали"
               value: 'horizontal'
             - label: "Шаг по горизонтали"
-              value: 'horizontal'
+              value: 'horizontal_step'

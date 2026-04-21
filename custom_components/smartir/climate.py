@@ -94,10 +94,6 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         return
 
     device = SmartIRClimate(hass, config, device_data)
-    device_id = config.get("name", "unnamed_ac")
-    hass.data.setdefault(DOMAIN, {})
-
-    hass.data[DOMAIN][device_id] = device
 
     async_add_entities([device])
 
@@ -167,6 +163,10 @@ class SmartIRClimate(ClimateEntity, RestoreEntity):
         _LOGGER.debug(f"async_added_to_hass {self} {self.name} {self.supported_features}")
 
         last_state = await self.async_get_last_state()
+
+        self.hass.data.setdefault(DOMAIN, {})
+        self.hass.data[DOMAIN][self.entity_id] = self
+        _LOGGER.info("Устройство %s зарегистрировано в SmartIR", self.entity_id)
 
         if last_state is not None:
             self._hvac_mode = last_state.state
@@ -364,34 +364,15 @@ class SmartIRClimate(ClimateEntity, RestoreEntity):
         else:
             await self.async_set_hvac_mode(self._operation_modes[1])
 
-    async def send_command(self, command):
+    async def send_extra_command(self, command):
         async with self._temp_lock:
             try:
-                if 'led' == command:
-                    await self._controller.send(self._commands['led'])
-                    return
-
-                if 'turbo' == command:
-                    await self._controller.send(self._commands['turbo'])
-                    return
-
-                if 'horizontal' == command:
-                    await self._controller.send(self._commands['horizontal'])
-                    return
-
-                if 'horizontal_step' == command:
-                    await self._controller.send(self._commands['horizontal_step'])
-                    return
-
-                if 'vertical' == command:
-                    await self._controller.send(self._commands['vertical'])
-                    return
-
-                if 'vertical_step' == command:
-                    await self._controller.send(self._commands['vertical_step'])
-                    return
+                if command in self._commands:
+                    await self._controller.send(self._commands[command])
+                else:
+                    _LOGGER.error("Команда %s не найдена в базе кодов", command)
             except Exception as e:
-                _LOGGER.exception(e)
+                _LOGGER.exception("Ошибка при отправке IR команды: %s", e)
 
     async def send_command(self):
         async with self._temp_lock:
